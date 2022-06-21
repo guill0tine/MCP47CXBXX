@@ -10,7 +10,6 @@ MCP47CXBXX_DAC::MCP47CXBXX_DAC() {} //TODO how does this work, what is this even
 
 //Individual channel power setting control
 //pwr_setting can be DAC_PWR_NORMAL, DAC_PWR_DOWN_1K, DAC_PWR_DOWN_100k, DAC_PWR_DOWN_HIZ
-//example: dac_pwr_config(DAC_PWR_DOWN_1K, DAC_PWR_DOWN_HIZ);
 bool MCP47CXBXX_DAC::begin(uint8_t resolution, uint8_t channel_count = 2, uint8_t i2c_address = DAC_ADR_DEFAULT)
 {
     Wire.begin();
