@@ -1,0 +1,250 @@
+#include <Wire.h>
+#include <MCP47CXBXX.h>
+
+//I2C address based on pin 2 (A0) and pin 8 (A1)
+#define DAC_ADR_A0  0
+#define DAC_ADR_A1  0
+#define DAC_DUAL
+#define DAC_RES     10    //options are 12, 10, 8
+#define DAC_GAIN    1     //Output op-amp gain, other option is to have the gain be 2
+//#define DAC_SINGLE
+
+#if DAC_RES == 8
+  #define DAC_MAX_VALUE 255
+#elif DAC_RES == 10
+  #define DAC_MAX_VALUE 1023
+#elif DAC_RES == 12
+  #define DAC_MAX_VALUE 4095
+#else
+  #define DAC_MAX_VALUE 0
+#endif
+
+//Registers
+#define DAC_WIPER_REG0      0x00
+#define DAC_WIPER_REG1      0x01
+#define DAC_VREF_REG        0x08
+#define DAC_POWERDOWN_REG   0x09
+#define DAC_GAIN_REG        0x0A
+
+//General Call Commands
+#define I2C_RESET           0x06
+#define I2C_WAKE            0x0A
+//Register settings
+
+//VREF
+#define DAC_VREF_VDD        0b00    //VDD is the reference
+#define DAC_VREF_INTERNAL   0b01    //internal bandgap ref of 1.214V
+#define DAC_VREF_EXT_UNBUFF 0b10    //external unbuffered reference - does not use the internal opamp
+#define DAC_VREF_EXT_BUFF   0x11    //external buffered reference - uses the internal opamp
+
+//POWER
+#define DAC_PWR_NORMAL      0b00    //Normal operation
+#define DAC_PWR_DOWN_1K     0b01    //Powered down, with 1kohm resistor to ground on outputs
+#define DAC_PWR_DOWN_100K   0b10    //Powered down, with 100kohm resistor to ground on outputs
+#define DAC_PWR_DOWN_HIZ    0b11    //Powered down, with Hi-Z on outputs
+
+//GAIN
+#define DAC_GAIN_1X         0       //channel 1, output gain of 1
+#define DAC_GAIN_2X         1       //channel 1, output gain of 2
+
+//STATUS - Read only
+#define DAC_STATUS_POR      1<<7    //A 1 on this bit indicates POR/BOR event occured since last read, guessing it clears after reading
+#define DAC_STATUS_MTPMA    1<<6    //A 1 indicates memory is being accessed
+
+
+#define DAC_ADR (0b01100000)| DAC_ADR_A1<<1 | DAC_ADR_A0 
+
+uint16_t bits_returned = 0;
+uint16_t dac0_value = 0;
+uint16_t dac1_value = 0;
+
+//sine wave array
+uint16_t sine_wave[] = {512,524,537,550,563,576,588,601,614,626,639,651,663,676,688,700,
+712,723,735,747,758,769,780,791,802,812,822,833,842,852,862,871,880,889,897,906,914,922,
+929,936,943,950,957,963,969,974,980,985,989,994,998,1002,1005,1008,1011,1014,1016,1018,
+1020,1021,1022,1023,1023,1023,1023,1022,1021,1020,1018,1016,1014,1011,1008,1005,1002,998,
+994,989,985,980,974,969,963,957,950,943,936,929,922,914,906,897,889,880,871,862,852,842,
+833,822,812,802,791,780,769,758,747,735,723,712,700,688,676,663,651,639,626,614,601,588,
+576,563,550,537,524,512,499,486,473,460,447,435,422,409,397,384,372,360,347,335,323,311,
+300,288,276,265,254,243,232,221,211,201,190,181,171,161,152,143,134,126,117,109,101,94,
+87,80,73,66,60,54,49,43,38,34,29,25,21,18,15,12,9,7,5,3,2,1,0,0,0,0,1,2,3,5,7,9,12,15,
+18,21,25,29,34,38,43,49,54,60,66,73,80,87,94,101,109,117,126,134,143,152,161,171,181,190,
+201,211,221,232,243,254,265,276,288,300,311,323,335,347,360,372,384,397,409,422,435,447,
+460,473,486,499,512};
+ 
+void setup() {
+  // put your setup code here, to run once:
+  randomSeed(analogRead(A0));
+  Serial.begin(115200);
+  Serial.print("DAC Adrs: 0x");
+  Serial.println(DAC_ADR, HEX);
+
+  Wire.begin();  //join I2C bus as a controller device
+  delay(10);
+  dac_vref_config(DAC_VREF_INTERNAL, DAC_VREF_INTERNAL);
+  //dac_gain_config(DAC_GAIN_1X, DAC_GAIN_1X);    //Not needed since the DAC defaults to gain of 1
+  Serial.print("DAC resolution is ");
+  Serial.print(DAC_RES);
+  Serial.print(" with max value of ");
+  Serial.println(DAC_MAX_VALUE);
+  
+  if(DAC_MAX_VALUE == 0)
+  {
+    Serial.println("incorrect dac resolution");
+  }
+
+  dac0_value = 500;
+  dac1_value = 666;
+
+  dac_set_output(0, dac0_value);
+  dac_set_output(1, dac1_value);
+
+  dac_read_output(0, &bits_returned);
+
+  Serial.println("");
+  Serial.println(random(300));
+  Serial.print("Sent dac0 value: ");
+  Serial.println(dac0_value);
+  Serial.print("Returned dac0 value: ");
+  Serial.println(bits_returned);
+
+  //delay(100);
+  dac_read_output(1, &bits_returned);
+
+  Serial.print("Sent dac1 value: ");
+  Serial.println(dac1_value);
+  Serial.print("Returned dac1 value: ");
+  Serial.println(bits_returned);
+
+  Serial.print("size of sine array: ");
+  Serial.println(sizeof(sine_wave ));
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+  for( uint16_t i = 0; i < sizeof(sine_wave); i++)
+  {
+    dac_set_output(0, sine_wave[i]);
+  }
+
+}
+
+//Individual channel power setting control
+//pwr_setting can be DAC_PWR_NORMAL, DAC_PWR_DOWN_1K, DAC_PWR_DOWN_100k, DAC_PWR_DOWN_HIZ
+//example: dac_pwr_config(DAC_PWR_DOWN_1K, DAC_PWR_DOWN_HIZ);
+uint16_t dac_pwr_config(uint8_t channel_0_setting, uint8_t channel_1_setting)
+{
+  uint8_t value_LSB = 0;
+  
+  value_LSB = (channel_1_setting<<2)&0b00001100 | (channel_0_setting)&0b00000011;
+ 
+  DAC_write(DAC_ADR, DAC_POWERDOWN_REG, 0, value_LSB);
+}
+
+uint16_t dac_vref_config(uint8_t channel_0_setting, uint8_t channel_1_setting)
+{
+  uint8_t value_LSB = 0;
+  
+  value_LSB = (channel_1_setting<<2)&0b00001100 | (channel_0_setting)&0b00000011;
+ 
+  DAC_write(DAC_ADR, DAC_VREF_REG, 0, value_LSB);
+}
+
+uint16_t dac_gain_config(uint8_t channel_0_setting, uint8_t channel_1_setting)
+{
+  uint8_t value_MSB = 0;
+  
+  value_MSB = (channel_1_setting<<1)&0b00000010 | (channel_0_setting)&0b00000001;
+ 
+  DAC_write(DAC_ADR, DAC_GAIN_REG, value_MSB, 0);
+}
+
+bool dac_set_output(uint8_t channel, uint16_t value)
+{
+  uint8_t dac_register;
+  uint16_t mask_value;
+  if(DAC_RES == 8)
+    mask_value = 0b0000000011111111;
+  if(DAC_RES == 10)
+    mask_value = 0b0000001111111111;
+  if(DAC_RES == 12)
+    mask_value = 0b0000111111111111;
+  
+  if(channel == 0)
+    dac_register = DAC_WIPER_REG0;
+  else if(channel == 1)
+    dac_register = DAC_WIPER_REG1;
+  else
+    return 0; //invalid register
+
+  if(value > DAC_MAX_VALUE)
+  {
+     value = DAC_MAX_VALUE;
+     Serial.println("WARNING - requested dac value greather than allowed");
+  }
+
+  value = value&mask_value;   //remove data on the upper bits that are not to be sent to the DAC based on the resolution.
+  DAC_write(DAC_ADR, dac_register, ((value>>8)&0x00FF), ((value)&0x00FF));
+  return 1;
+   //TODO error handling
+}
+
+bool dac_read_output(uint8_t channel, uint16_t *value)
+{
+  if(channel == 0)
+    channel = DAC_WIPER_REG0;
+  else if(channel == 1)
+    channel = DAC_WIPER_REG1;
+  else
+    return 0;   //invalid address
+
+  DAC_read(DAC_ADR, channel, value);
+
+  return 1;
+
+  //TODO error handling
+}
+
+//Lower level function to send values to specific registers of a specific I2C device with some address.
+//address - I2C address of device
+//command - register address
+//value - data to write to the register, splite into the MSB and LSB
+bool general_command(uint8_t command)
+{
+  Wire.beginTransmission(0x00);
+  Wire.write(command);  //command stored in upper 5 bits
+  Wire.endTransmission();
+}
+
+bool DAC_write(uint8_t address, uint8_t command, uint8_t value_MSB, uint8_t value_LSB)
+{
+  Wire.beginTransmission(address);
+  Wire.write((command<<3)&0xF8);  //command stored in upper 5 bits
+  Wire.write(value_MSB);
+  Wire.write(value_LSB);
+  Wire.endTransmission();
+
+  return 1;
+  //TODO error handling
+}
+
+bool DAC_read(uint8_t address, uint8_t command, uint16_t* value)
+{
+  Wire.beginTransmission(address);
+  Wire.write((command<<3)&0xF8 | 0b00000110);  //command stored in upper 5 bits, b1 and b2 set to '1' for read command
+  Wire.endTransmission();
+
+  Wire.requestFrom(int(address), 2);    //request 2 bytes from provided address  
+
+  if(2 <= Wire.available())
+  {
+    
+    *value = Wire.read();
+    *value = *value << 8;
+    *value |= Wire.read();
+  }
+  
+  return 1;
+  //TODO error handling
+}
