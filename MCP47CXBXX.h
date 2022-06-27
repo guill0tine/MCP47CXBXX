@@ -15,20 +15,6 @@
 //I2C address based on pin 2 (A0) and pin 8 (A1)
 #define DAC_ADR_A0  0
 #define DAC_ADR_A1  0
-#define DAC_DUAL
-#define DAC_RES     10    //options are 12, 10, 8
-#define DAC_GAIN    1     //Output op-amp gain, other option is to have the gain be 2
-//#define DAC_SINGLE
-
-#if DAC_RES == 8    //TODO change this
-  #define DAC_MAX_VALUE 255
-#elif DAC_RES == 10
-  #define DAC_MAX_VALUE 1023
-#elif DAC_RES == 12
-  #define DAC_MAX_VALUE 4095
-#else
-  #define DAC_MAX_VALUE 0
-#endif
 
 //Registers
 #define DAC_WIPER_REG0      0x00
@@ -69,18 +55,22 @@
 class MCP47CXBXX_DAC {
   public:
     MCP47CXBXX_DAC();
-      bool begin(uint8_t resolution, uint8_t channel_count = 2, uint8_t i2c_address = DAC_ADR_DEFAULT);
-      bool setOutput(uint8_t channel, uint16_t value);
-      bool setPwr(uint8_t channel_0_setting, uint8_t channel_1_setting);
-      bool setVref(uint8_t channel_0_setting, uint8_t channel_1_setting);
-      bool setGain(uint8_t channel_0_setting, uint8_t channel_1_setting);
-      bool readOutput(uint8_t channel, uint16_t *value); //TODO maybe change to return the actual output instead of using a pointer
-      bool Wake();    //TODO implement this
-      bool Reset();   //TODO implement this
+      uint8_t begin(uint8_t resolution, uint8_t channel_count = 2, uint8_t i2c_address = DAC_ADR_DEFAULT, uint32_t clock = 200000);
+      uint8_t setOutput(uint8_t channel, uint16_t value, bool continuous = false);
+      uint8_t setPwr(uint8_t channel_0_setting, uint8_t channel_1_setting);
+      uint8_t setVref(uint8_t channel_0_setting, uint8_t channel_1_setting);
+      uint8_t setGain(uint8_t channel_0_setting, uint8_t channel_1_setting);
+      uint8_t readOutput(uint8_t channel, uint16_t *value); //TODO maybe change to return the actual output instead of using a pointer
+      uint8_t Wake();    //TODO implement this
+      uint8_t Reset();   //TODO implement this
   private:
-      bool Write(uint8_t address, uint8_t command, uint8_t value_MSB, uint8_t value_LSB);
-      bool Read(uint8_t address, uint8_t command, uint16_t* value);
-      bool general_command(uint8_t command);
+      uint8_t Write(uint8_t command, uint8_t value_MSB, uint8_t value_LSB, bool sendStop = true);
+      uint8_t Read(uint8_t command, uint16_t* value);
+      uint8_t general_command(uint8_t command);
+      uint8_t DAC_ADDRESS;
+      uint8_t DAC_RESOLUTION; //gets updated with the user selected resolution
+      uint8_t dac_chcount;    //gets updated with the user specified channel count
+      uint16_t DAC_MAX_VALUE = 0;
 };
 
 #endif

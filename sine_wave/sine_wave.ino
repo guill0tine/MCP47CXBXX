@@ -1,36 +1,19 @@
 #include <MCP47CXBXX.h>
 
 MCP47CXBXX_DAC dac;
-
+#define DAC_RES 10
+#define DAC_CHNS 2
 //I2C address based on pin 2 (A0) and pin 8 (A1)
 #define DAC_ADR_A0  0
 #define DAC_ADR_A1  0
-#define DAC_DUAL
-#define DAC_RES     10    //options are 12, 10, 8
-#define DAC_GAIN    1     //Output op-amp gain, other option is to have the gain be 2
-//#define DAC_SINGLE
-
-/*
-#if DAC_RES == 8
-  #define DAC_MAX_VALUE 255
-#elif DAC_RES == 10
-  #define DAC_MAX_VALUE 1023
-#elif DAC_RES == 12
-  #define DAC_MAX_VALUE 4095
-#else
-  #define DAC_MAX_VALUE 0
-#endif
-*/
-
 #define DAC_ADR (0b01100000)| DAC_ADR_A1<<1 | DAC_ADR_A0 
 
 uint16_t bits_returned = 0;
 uint16_t dac0_value = 0;
 uint16_t dac1_value = 0;
+uint8_t dac_status_flag = 0;
 
 //sine wave array
-uint16_t sine_wave[] = {0, 1, 2, 3, 4};
-/*
 uint16_t sine_wave[] = {512,524,537,550,563,576,588,601,614,626,639,651,663,676,688,700,
 712,723,735,747,758,769,780,791,802,812,822,833,842,852,862,871,880,889,897,906,914,922,
 929,936,943,950,957,963,969,974,980,985,989,994,998,1002,1005,1008,1011,1014,1016,1018,
@@ -43,7 +26,6 @@ uint16_t sine_wave[] = {512,524,537,550,563,576,588,601,614,626,639,651,663,676,
 18,21,25,29,34,38,43,49,54,60,66,73,80,87,94,101,109,117,126,134,143,152,161,171,181,190,
 201,211,221,232,243,254,265,276,288,300,311,323,335,347,360,372,384,397,409,422,435,447,
 460,473,486,499,512};
- */
 
 void setup() {
   // put your setup code here, to run once:
@@ -52,54 +34,23 @@ void setup() {
   Serial.print("DAC Adrs: 0x");
   Serial.println(DAC_ADR, HEX);
 
-  dac.begin(10, 2, DAC_ADR);
+  if(dac.begin(DAC_RES, DAC_CHNS, DAC_ADR) == 0)
+    Serial.println("DAC initiated sucessfully");
+  else
+    Serial.println("DAC not initialized");
 
+  //dac.Reset();
   dac.setVref(DAC_VREF_INTERNAL, DAC_VREF_INTERNAL);
-  //dac.setGain(DAC_GAIN_1X, DAC_GAIN_1X);    //Not needed since the DAC defaults to gain of 1
-  Serial.print("DAC resolution is ");
-  Serial.print(DAC_RES);
-  Serial.print(" with max value of ");
-  Serial.println(DAC_MAX_VALUE);
+  dac.setGain(DAC_GAIN_2X, DAC_GAIN_2X);
   
-  if(DAC_MAX_VALUE == 0)
-  {
-    Serial.println("incorrect dac resolution");
-  }
-
-  dac0_value = 500;
-  dac1_value = 666;
-
-  dac.setOutput(0, dac0_value);
-  dac.setOutput(1, dac1_value);
-
-  dac.readOutput(0, &bits_returned);
-
-  Serial.println("");
-  Serial.println(random(300));
-  Serial.print("Sent dac0 value: ");
-  Serial.println(dac0_value);
-  Serial.print("Returned dac0 value: ");
-  Serial.println(bits_returned);
-
-  //delay(100);
-  dac.readOutput(1, &bits_returned);
-
-  Serial.print("Sent dac1 value: ");
-  Serial.println(dac1_value);
-  Serial.print("Returned dac1 value: ");
-  Serial.println(bits_returned);
-
-  Serial.print("size of sine array: ");
-  Serial.println(sizeof(sine_wave ));
-  Serial.print("size of a uint16_t: ");
-  Serial.println(sizeof(uint16_t));
+  Serial.print("DAC resolution is ");
+  Serial.println(DAC_RES);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
   for(uint16_t i = 0; i < (sizeof(sine_wave)/sizeof(uint16_t)); i++)
   {
-    dac.setOutput(0, sine_wave[i]);
+    dac_status_flag = dac.setOutput(0, sine_wave[i]);
+    //Serial.println(dac_status_flag);
   }
 }
