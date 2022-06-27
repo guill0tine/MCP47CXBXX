@@ -55,18 +55,18 @@
 class MCP47CXBXX_DAC {
   public:
     MCP47CXBXX_DAC();
-      bool begin(uint8_t resolution, uint8_t channel_count = 2, uint8_t i2c_address = DAC_ADR_DEFAULT, uint32_t clock = 200000);
-      bool setOutput(uint8_t channel, uint16_t value);
-      bool setPwr(uint8_t channel_0_setting, uint8_t channel_1_setting);
-      bool setVref(uint8_t channel_0_setting, uint8_t channel_1_setting);
-      bool setGain(uint8_t channel_0_setting, uint8_t channel_1_setting);
-      bool readOutput(uint8_t channel, uint16_t *value); //TODO maybe change to return the actual output instead of using a pointer
-      bool Wake();    //TODO implement this
-      bool Reset();   //TODO implement this
+      uint8_t begin(uint8_t resolution, uint8_t channel_count = 2, uint8_t i2c_address = DAC_ADR_DEFAULT, uint32_t clock = 200000);
+      uint8_t setOutput(uint8_t channel, uint16_t value, bool continuous = false);
+      uint8_t setPwr(uint8_t channel_0_setting, uint8_t channel_1_setting);
+      uint8_t setVref(uint8_t channel_0_setting, uint8_t channel_1_setting);
+      uint8_t setGain(uint8_t channel_0_setting, uint8_t channel_1_setting);
+      uint8_t readOutput(uint8_t channel, uint16_t *value); //TODO maybe change to return the actual output instead of using a pointer
+      uint8_t Wake();    //TODO implement this
+      uint8_t Reset();   //TODO implement this
   private:
-      bool Write(uint8_t address, uint8_t command, uint8_t value_MSB, uint8_t value_LSB);
-      bool Read(uint8_t address, uint8_t command, uint16_t* value);
-      bool general_command(uint8_t command);
+      uint8_t Write(uint8_t command, uint8_t value_MSB, uint8_t value_LSB, bool sendStop = true);
+      uint8_t Read(uint8_t command, uint16_t* value);
+      uint8_t general_command(uint8_t command);
       uint8_t DAC_ADDRESS;
       uint8_t DAC_RESOLUTION; //gets updated with the user selected resolution
       uint8_t dac_chcount;    //gets updated with the user specified channel count
